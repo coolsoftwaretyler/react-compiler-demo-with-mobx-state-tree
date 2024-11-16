@@ -15,6 +15,7 @@ This demo repository is a Remix app with the React Compiler enabled for React 18
 Run the dev server:
 
 ```shellscript
+npm install
 npm run dev
 ```
 
@@ -26,7 +27,7 @@ Then, open up [React DevTools](), and check to see [when the React Compiler is w
 
 [The important code is in `hooks/useObservable.ts`](https://github.com/coolsoftwaretyler/react-compiler-demo-with-mobx-state-tree/blob/main/hooks/useObservable.ts).
 
-This is essentially like a [`useSyncExternalStore`](https://react.dev/reference/react/useSyncExternalStore) hook, but it knows a little more about MobX-State-Tree, so it can provide granular updates to the UI, whereas `useSyncExternalStore` would re-render the component on every change, even for unrelated properties.
+This is essentially like a [`useSyncExternalStore`](https://react.dev/reference/react/useSyncExternalStore) hook, but it knows a little more about MobX-State-Tree, so it can provide granular updates to the UI, whereas `useSyncExternalStore` would re-render the component on every change, even for unrelated properties (you can observe this behavior [in this CodeSandbox](https://codesandbox.io/p/sandbox/use-sync-external-store-mtzjy5?file=%2Fsrc%2FApp.tsx%3A8%2C22&workspaceId=bc6eb896-0c27-4f04-9c47-0f6548642233)
 
 ## TODO
 
