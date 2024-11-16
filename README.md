@@ -21,3 +21,17 @@ npm run dev
 `localhost:5173` will show up and have two links: one for the `useObservable` hook, and one for the `observer` HOC. On either page, you should be able to click buttons to see changes (and see when certain state changes are ignored).
 
 Then, open up [React DevTools](), and check to see [when the React Compiler is working](https://react.dev/learn/react-compiler#how-do-i-know-my-components-have-been-optimized). You'll see the `observer` HOC is *not* memoized correctly, but the `useObservable` hook *is*.
+
+## How it works
+
+[The important code is in `hooks/useObservable.ts`](https://github.com/coolsoftwaretyler/react-compiler-demo-with-mobx-state-tree/blob/main/hooks/useObservable.ts).
+
+This is essentially like a [`useSyncExternalStore`](https://react.dev/reference/react/useSyncExternalStore) hook, but it knows a little more about MobX-State-Tree, so it can provide granular updates to the UI, whereas `useSyncExternalStore` would re-render the component on every change, even for unrelated properties.
+
+## TODO
+
+- Expose `views` from the hook
+- Document
+- Solicit more feedback and edge cases/corner cases
+- More fixes
+- Consider packaging it up with MobX-State-Tree
