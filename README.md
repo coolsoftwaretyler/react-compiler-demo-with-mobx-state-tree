@@ -1,8 +1,16 @@
-# Welcome to Remix!
+# MobX State React Compiler Demo
 
-- 📖 [Remix docs](https://remix.run/docs)
+[Built with Remix](https://remix.run/)
 
-## Development
+## Why
+
+[The new React Compiler presents problems for observable libraries](https://coolsoftware.dev/blog/a-path-towards-observable-values-in-react/), which tend to use an `observer` HOC to track changes. This observer will not work correctly with the new compiler.
+
+MobX-State-Tree is exploring ways to make reactive updates remain granular, preserve the developer experience, and comply with the Rules of React through some custom hooks.
+
+This demo repository is a Remix app with the React Compiler enabled for React 18.
+
+## Usage
 
 Run the dev server:
 
@@ -10,31 +18,6 @@ Run the dev server:
 npm run dev
 ```
 
-## Deployment
+`localhost:5173` will show up and have two links: one for the `useObservable` hook, and one for the `observer` HOC. On either page, you should be able to click buttons to see changes (and see when certain state changes are ignored).
 
-First, build your app for production:
-
-```sh
-npm run build
-```
-
-Then run the app in production mode:
-
-```sh
-npm start
-```
-
-Now you'll need to pick a host to deploy it to.
-
-### DIY
-
-If you're familiar with deploying Node applications, the built-in Remix app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-- `build/server`
-- `build/client`
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever css framework you prefer. See the [Vite docs on css](https://vitejs.dev/guide/features.html#css) for more information.
+Then, open up [React DevTools](), and check to see [when the React Compiler is working](https://react.dev/learn/react-compiler#how-do-i-know-my-components-have-been-optimized). You'll see the `observer` HOC is *not* memoized correctly, but the `useObservable` hook *is*.
