@@ -15,6 +15,8 @@ export default observer(function ObserverPage() {
     submodel: { title, allCaps, lowercase },
   } = store;
 
+  console.log("Rendering")
+
   return (
     <div className="App">
       <h1>This page uses an observer HOC</h1>
