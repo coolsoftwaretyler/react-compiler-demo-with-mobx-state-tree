@@ -6,12 +6,21 @@ const SubModel = t
   })
   .actions((sub) => ({
     randomize() {
+      console.log("Randomizing title - should render");
       const randomString = Array.from({ length: 8 }, () =>
         "Hello World".charAt(Math.random() * 10)
       ).join("");
       sub.title = randomString;
     },
-  }));
+  }))
+  .views((self) => ({
+    get allCaps() {
+      return self.title.toUpperCase();
+    },
+    lowercase() {
+      return self.title.toLowerCase();
+    }
+  }))
 
 const SomeModel = t
   .model("SomeModel", {

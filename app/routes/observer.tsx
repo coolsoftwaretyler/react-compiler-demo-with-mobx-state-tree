@@ -12,8 +12,10 @@ export const meta: MetaFunction = () => {
 export default observer(function ObserverPage() {
   const {
     count,
-    submodel: { title },
+    submodel: { title, allCaps, lowercase },
   } = store;
+
+  console.log("Rendering")
 
   return (
     <div className="App">
@@ -22,6 +24,8 @@ export default observer(function ObserverPage() {
       <p>
         {count}: {title}
       </p>
+      <p>This is a computed view that capitalizes the title: {allCaps}</p>
+      <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p> 
       <div className="flex flex-wrap gap-2">
         <button 
           onClick={() => store.increment()} 
