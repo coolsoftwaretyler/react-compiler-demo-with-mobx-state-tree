@@ -31,7 +31,6 @@ This is essentially like a [`useSyncExternalStore`](https://react.dev/reference/
 
 ## TODO
 
-- Expose `views` from the hook
 - Document
 - Solicit more feedback and edge cases/corner cases
 - More fixes
