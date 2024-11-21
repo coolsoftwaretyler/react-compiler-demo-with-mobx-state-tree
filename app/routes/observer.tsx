@@ -12,7 +12,7 @@ export const meta: MetaFunction = () => {
 export default observer(function ObserverPage() {
   const {
     count,
-    submodel: { title, allCaps, lowercase },
+    submodel: { title, allCaps },
   } = store;
 
   console.log("Rendering")
@@ -20,12 +20,12 @@ export default observer(function ObserverPage() {
   return (
     <div className="App">
       <h1>This page uses an observer HOC</h1>
-      <p>Open up React DevTools and you'll see that the `ObserverPage` component is not memoized with React Compiler</p>
+      <p>Open up React DevTools and you&apos;ll see that the `ObserverPage` component is not memoized with React Compiler</p>
       <p>
         {count}: {title}
       </p>
       <p>This is a computed view that capitalizes the title: {allCaps}</p>
-      <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p> 
+      {/* <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p>  */}
       <div className="flex flex-wrap gap-2">
         <button 
           onClick={() => store.increment()} 

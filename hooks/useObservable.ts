@@ -1,53 +1,92 @@
 import { useEffect, useState } from "react";
-import { IStateTreeNode, t, getSnapshot, onSnapshot } from "mobx-state-tree";
+import { IStateTreeNode, getSnapshot, onSnapshot } from "mobx-state-tree";
 
 // Helper to check if a value is an MST node
-function isMSTNode(value: any): value is IStateTreeNode {
-  return value && typeof value === "object" && "toJSON" in value;
-}
-
-export function useObservableProperty<
-  T extends IStateTreeNode,
-  K extends keyof ReturnType<typeof getSnapshot<T>>
->(model: T, property: K) {
-  const [value, setValue] = useState(() => {
-    return model[property];
-  });
-
-  useEffect(() => {
-    if (!model) return;
-    const disposer = onSnapshot(model, (snapshot) => {
-      if (model[property] !== value) {
-        setValue(model[property]);
-      }
-    });
-    return disposer;
-  }, [model, property, value]);
-
-  // If the value is itself an MST node, return a proxy for it
-  const propertyValue = model[property];
-  if (isMSTNode(propertyValue)) {
-    return useObservable(propertyValue);
-  }
-
-  // If it's a function, return the function bound to the model
-  if (typeof propertyValue === 'function') {
-    return propertyValue.bind(model);
-  }
-
-  return value;
+function isMSTNode(value: unknown): value is IStateTreeNode {
+  return Boolean(value && typeof value === "object" && "toJSON" in value);
 }
 
 export function useObservable<T extends IStateTreeNode>(model: T) {
-  return new Proxy({} as ReturnType<typeof getSnapshot<T>>, {
-    get: (target, property) => {
-      if (typeof property === "string") {
-        return useObservableProperty(
-          model,
-          property as keyof ReturnType<typeof getSnapshot<T>>
-        );
+  type SnapshotType = ReturnType<typeof getSnapshot<T>>;
+  
+  // Track observed properties and their values
+  const [observedProps, setObservedProps] = useState<Record<string | symbol, unknown>>({});
+
+  useEffect(() => {
+    if (!model) return;
+    
+    const disposer = onSnapshot(model, () => {
+      // Update only the observed properties
+      setObservedProps(prev => {
+        const next = { ...prev };
+        let hasChanges = false;
+        
+        for (const prop of Object.keys(prev)) {
+          const newValue = model[prop as keyof T];
+          if (prev[prop] !== newValue) {
+            next[prop] = newValue;
+            hasChanges = true;
+          }
+        }
+        
+        return hasChanges ? next : prev;
+      });
+    });
+    
+    return disposer;
+  }, [model]);
+
+  return new Proxy({} as SnapshotType, {
+    get: (target, property: string | symbol) => {
+      // Add property to observed props if it's not already there
+      if (!(property in observedProps)) {
+        setObservedProps(prev => ({
+          ...prev,
+          [property]: model[property as keyof T]
+        }));
+        
+        // Return the initial value
+        const propertyValue = model[property as keyof T];
+        
+        if (typeof propertyValue === 'function') {
+          return propertyValue.bind(model);
+        }
+        
+        if (isMSTNode(propertyValue)) {
+          return new Proxy({} as ReturnType<typeof getSnapshot<typeof propertyValue>>, {
+            get: (target, nestedProperty: string | symbol) => {
+              const nestedValue = propertyValue[nestedProperty as keyof typeof propertyValue];
+              if (typeof nestedValue === 'function') {
+                return nestedValue.bind(propertyValue);
+              }
+              return nestedValue;
+            },
+          });
+        }
+        
+        return propertyValue;
       }
-      return undefined;
-    },
+
+      // Return the cached value for observed properties
+      const propertyValue = model[property as keyof T];
+      
+      if (typeof propertyValue === 'function') {
+        return propertyValue.bind(model);
+      }
+      
+      if (isMSTNode(propertyValue)) {
+        return new Proxy({} as ReturnType<typeof getSnapshot<typeof propertyValue>>, {
+          get: (target, nestedProperty: string | symbol) => {
+            const nestedValue = propertyValue[nestedProperty as keyof typeof propertyValue];
+            if (typeof nestedValue === 'function') {
+              return nestedValue.bind(propertyValue);
+            }
+            return nestedValue;
+          },
+        });
+      }
+      
+      return observedProps[property];
+    }
   });
 }
