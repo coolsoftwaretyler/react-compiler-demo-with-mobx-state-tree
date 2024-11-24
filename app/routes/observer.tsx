@@ -18,14 +18,13 @@ export default observer(function ObserverPage() {
   console.log("Rendering")
 
   return (
-    <div className="App">
-      <h1>This page uses an observer HOC</h1>
-      <p>Open up React DevTools and you&apos;ll see that the `ObserverPage` component is not memoized with React Compiler</p>
-      <p>
+    <div className="App bg-white p-8 min-h-screen">
+      <h1 className="text-3xl font-bold text-green-600 mb-4">👀 Using MobX Observer HOC 👀</h1>
+      <p className="text-gray-800">Open up React DevTools and you&apos;ll see that the `ObserverPage` component is not memoized with React Compiler</p>
+      <p className="text-gray-800 my-2">
         {count}: {title}
       </p>
-      <p>This is a computed view that capitalizes the title: {allCaps}</p>
-      {/* <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p>  */}
+      <p className="text-gray-800 my-2">This is a computed view that capitalizes the title: {allCaps}</p>
       <div className="flex flex-wrap gap-2">
         <button 
           onClick={() => store.increment()} 
