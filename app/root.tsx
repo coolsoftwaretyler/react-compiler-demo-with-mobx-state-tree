@@ -8,6 +8,7 @@ import {
 import type { LinksFunction } from "@remix-run/node";
 
 import "./tailwind.css";
+import { useEffect } from "react";
 
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -23,6 +24,17 @@ export const links: LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    import('react-scan').then(({ scan }) => {
+      scan({
+        includeChildren: true,
+        log: true,
+        report: true,
+      });
+    });
+  }, []);
   return (
     <html lang="en">
       <head>

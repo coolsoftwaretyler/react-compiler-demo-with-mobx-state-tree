@@ -3,27 +3,36 @@ import { Link } from "@remix-run/react";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "MobX Demo" },
-    { name: "description", content: "MobX with Remix demo" },
+    { title: "MobX State Tree Demo" },
+    { name: "description", content: "MobX State Tree Demo" },
   ];
 };
 
 export default function Index() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="max-w-2xl mx-auto p-8 space-y-8 text-center">
-        <h1 className="text-3xl font-bold mb-8">MobX State Management Demo</h1>
-        
-        <div className="space-y-6">
-          <div className="p-6 border rounded-lg hover:shadow-lg transition-shadow">
-            <Link to="/hook" className="block space-y-2">
-              <h2 className="text-xl font-semibold text-blue-600">useObservable Hook</h2>
+    <div className="bg-white min-h-screen p-8">
+      <h1 className="text-4xl font-bold text-gray-800 mb-8">MobX State Tree Demo</h1>
+      <div className="space-y-6">
+        <div className="p-6 border rounded-lg shadow-sm">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Choose your implementation:</h2>
+          <div className="space-y-4">
+            <Link 
+              to="/observer" 
+              className="block p-4 bg-green-50 hover:bg-green-100 rounded-md border border-green-200 text-green-700"
+            >
+              👀 Observer HOC Implementation
             </Link>
-          </div>
-
-          <div className="p-6 border rounded-lg hover:shadow-lg transition-shadow">
-            <Link to="/observer" className="block space-y-2">
-              <h2 className="text-xl font-semibold text-blue-600">Observer HOC</h2>
+            <Link 
+              to="/hook" 
+              className="block p-4 bg-purple-50 hover:bg-purple-100 rounded-md border border-purple-200 text-purple-700"
+            >
+              🪝 Hook Implementation
+            </Link>
+            <Link 
+              to="/state" 
+              className="block p-4 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 text-blue-700"
+            >
+              ⚛️ React State Implementation
             </Link>
           </div>
         </div>

@@ -12,20 +12,20 @@ export const meta: MetaFunction = () => {
 export default function HookPage() {
   const {
     count,
-    submodel: { title, allCaps, lowercase },
+    submodel: { title, allCaps},
   } = useObservable(store);
 
   console.log("Rendering")
   
   return (
-    <div className="App">
-      <h1>This page uses a hook for observing properties</h1>
-      <p>Open up React DevTools and you'll see that the `HookPage` component is properly memoized with React Compiler</p>
-      <p>
+    <div className="App bg-white p-8 min-h-screen">
+      <h1 className="text-3xl font-bold text-purple-600 mb-4">🪝 Using useObservable Hook 🪝</h1>
+      <p className="text-gray-800">Open up React DevTools and you&apos;ll see that the `HookPage` component is properly memoized with React Compiler</p>
+      <p className="text-gray-800 my-2">
         {count}: {title}
       </p>
-      <p>This is a computed view that capitalizes the title: {allCaps}</p>
-      <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p>
+      <p className="text-gray-800 my-2">This is a computed view that capitalizes the title: {allCaps}</p>
+      {/* <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p> */}
       <div className="flex flex-wrap gap-2">
         <button 
           onClick={() => store.increment()} 
