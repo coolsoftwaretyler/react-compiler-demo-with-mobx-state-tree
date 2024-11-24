@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { IStateTreeNode, getSnapshot, onSnapshot } from "mobx-state-tree";
+import { IStateTreeNode, getSnapshot } from "mobx-state-tree";
+import { reaction } from "mobx";
 
-// Helper to check if a value is an MST node
 function isMSTNode(value: unknown): value is IStateTreeNode {
   return Boolean(value && typeof value === "object" && "toJSON" in value);
 }
@@ -9,84 +9,109 @@ function isMSTNode(value: unknown): value is IStateTreeNode {
 export function useObservable<T extends IStateTreeNode>(model: T) {
   type SnapshotType = ReturnType<typeof getSnapshot<T>>;
   
-  // Track observed properties and their values
-  const [observedProps, setObservedProps] = useState<Record<string | symbol, unknown>>({});
+  const [state, setState] = useState<Record<string | symbol, unknown>>({});
 
   useEffect(() => {
     if (!model) return;
-    
-    const disposer = onSnapshot(model, () => {
-      // Update only the observed properties
-      setObservedProps(prev => {
-        const next = { ...prev };
-        let hasChanges = false;
-        
-        for (const prop of Object.keys(prev)) {
-          const newValue = model[prop as keyof T];
-          if (prev[prop] !== newValue) {
-            next[prop] = newValue;
-            hasChanges = true;
+
+    const disposers: ReturnType<typeof reaction>[] = [];
+
+    // Set up reaction for each property
+    Object.keys(state).forEach(prop => {
+      const disposer = reaction(
+        () => {
+          const value = model[prop as keyof T];
+          if (isMSTNode(value)) {
+            // Handle nested properties
+            const nested = {} as Record<string, unknown>;
+            Object.keys(state)
+              .filter(key => key.startsWith(`${prop}.`))
+              .forEach(key => {
+                const nestedProp = key.split('.')[1];
+                nested[nestedProp] = value[nestedProp as keyof typeof value];
+              });
+            return { value, ...nested };
           }
-        }
-        
-        return hasChanges ? next : prev;
-      });
+          return value;
+        },
+        (newValue) => {
+          setState(prev => ({
+            ...prev,
+            // @ts-expect-error - need to figure out some of this weird typing
+            [prop]: isMSTNode(newValue) ? newValue.value : newValue
+          }));
+        },
+        { fireImmediately: true }
+      );
+      disposers.push(disposer);
     });
-    
-    return disposer;
-  }, [model]);
+
+    return () => disposers.forEach(d => d());
+  }, [model, Object.keys(state).join(',')]);
 
   return new Proxy({} as SnapshotType, {
-    get: (target, property: string | symbol) => {
-      // Add property to observed props if it's not already there
-      if (!(property in observedProps)) {
-        setObservedProps(prev => ({
+    get: (_, property: string | symbol) => {
+      // Initialize tracking for new properties
+      if (!(property in state)) {
+        const value = model[property as keyof T];
+        
+        setState(prev => ({
           ...prev,
-          [property]: model[property as keyof T]
+          [property]: value
         }));
-        
-        // Return the initial value
-        const propertyValue = model[property as keyof T];
-        
-        if (typeof propertyValue === 'function') {
-          return propertyValue.bind(model);
+
+        if (typeof value === 'function') {
+          return value.bind(model);
         }
-        
-        if (isMSTNode(propertyValue)) {
-          return new Proxy({} as ReturnType<typeof getSnapshot<typeof propertyValue>>, {
-            get: (target, nestedProperty: string | symbol) => {
-              const nestedValue = propertyValue[nestedProperty as keyof typeof propertyValue];
+
+        if (isMSTNode(value)) {
+          return new Proxy({} as SnapshotType, {
+            get: (_, nestedProp: string | symbol) => {
+              const nestedValue = value[nestedProp as keyof typeof value];
+              
               if (typeof nestedValue === 'function') {
-                return nestedValue.bind(propertyValue);
+                return nestedValue.bind(value);
               }
+
+              // Track nested property
+              const fullProp = `${String(property)}.${String(nestedProp)}`;
+              if (!(fullProp in state)) {
+                setState(prev => ({
+                  ...prev,
+                  [fullProp]: nestedValue
+                }));
+              }
+
               return nestedValue;
-            },
+            }
           });
         }
-        
-        return propertyValue;
+
+        return value;
       }
 
-      // Return the cached value for observed properties
-      const propertyValue = model[property as keyof T];
-      
-      if (typeof propertyValue === 'function') {
-        return propertyValue.bind(model);
+      const value = model[property as keyof T];
+
+      if (typeof value === 'function') {
+        return value.bind(model);
       }
-      
-      if (isMSTNode(propertyValue)) {
-        return new Proxy({} as ReturnType<typeof getSnapshot<typeof propertyValue>>, {
-          get: (target, nestedProperty: string | symbol) => {
-            const nestedValue = propertyValue[nestedProperty as keyof typeof propertyValue];
+
+      if (isMSTNode(value)) {
+        return new Proxy({} as SnapshotType, {
+          get: (_, nestedProp: string | symbol) => {
+            const nestedValue = value[nestedProp as keyof typeof value];
+            
             if (typeof nestedValue === 'function') {
-              return nestedValue.bind(propertyValue);
+              return nestedValue.bind(value);
             }
-            return nestedValue;
-          },
+
+            const fullProp = `${String(property)}.${String(nestedProp)}`;
+            return state[fullProp] ?? nestedValue;
+          }
         });
       }
-      
-      return observedProps[property];
+
+      return state[property] ?? value;
     }
   });
 }
