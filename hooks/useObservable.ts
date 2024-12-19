@@ -1,117 +1,97 @@
-import { useEffect, useState } from "react";
-import { IStateTreeNode, getSnapshot } from "mobx-state-tree";
 import { reaction } from "mobx";
+import { IStateTreeNode, getMembers, isStateTreeNode } from "mobx-state-tree";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
-function isMSTNode(value: unknown): value is IStateTreeNode {
-  return Boolean(value && typeof value === "object" && "toJSON" in value);
-}
+const emptyObject = {};
 
 export function useObservable<T extends IStateTreeNode>(model: T) {
-  type SnapshotType = ReturnType<typeof getSnapshot<T>>;
-  
-  const [state, setState] = useState<Record<string | symbol, unknown>>({});
+  const [, setState] = useState(1);
+  const forceRender = useCallback(() => setState((n) => -n), []);
 
-  useEffect(() => {
-    if (!model) return;
+  const pathsAccessedInRender = useRef<Set<string[]>>(new Set());
+  pathsAccessedInRender.current = new Set();
 
-    const disposers: ReturnType<typeof reaction>[] = [];
+  useLayoutEffect(() => {
+    const disposer = reaction(
+      function expression() {
+        //// Uncomment this to see what paths are being accessed in the render
 
-    // Set up reaction for each property
-    Object.keys(state).forEach(prop => {
-      const disposer = reaction(
-        () => {
-          const value = model[prop as keyof T];
-          if (isMSTNode(value)) {
-            // Handle nested properties
-            const nested = {} as Record<string, unknown>;
-            Object.keys(state)
-              .filter(key => key.startsWith(`${prop}.`))
-              .forEach(key => {
-                const nestedProp = key.split('.')[1];
-                nested[nestedProp] = value[nestedProp as keyof typeof value];
-              });
-            return { value, ...nested };
+        // console.log("Paths accessed in render:");
+        // pathsAccessedInRender.current.forEach((pathParts) => {
+        //   console.log("  ", pathParts.join("."));
+        //   if (Array.isArray(pathParts.args)) {
+        //     console.log("    This is a view fn, with args:", pathParts.args);
+        //   }
+        // });
+
+        for (const pathParts of pathsAccessedInRender.current) {
+          let current = model;
+          for (const part of pathParts) {
+            current = current[part];
+
+            // If we are accessing a view function, we attach the args
+            // to the path array so we can call the view function here
+            if (
+              typeof current === "function" &&
+              Array.isArray(pathParts.args)
+            ) {
+              current = current(...pathParts.args);
+            }
           }
-          return value;
-        },
-        (newValue) => {
-          setState(prev => ({
-            ...prev,
-            // @ts-expect-error - need to figure out some of this weird typing
-            [prop]: isMSTNode(newValue) ? newValue.value : newValue
-          }));
-        },
-        { fireImmediately: true }
-      );
-      disposers.push(disposer);
-    });
-
-    return () => disposers.forEach(d => d());
-  }, [model, Object.keys(state).join(',')]);
-
-  return new Proxy({} as SnapshotType, {
-    get: (_, property: string | symbol) => {
-      // Initialize tracking for new properties
-      if (!(property in state)) {
-        const value = model[property as keyof T];
-        
-        setState(prev => ({
-          ...prev,
-          [property]: value
-        }));
-
-        if (typeof value === 'function') {
-          return value.bind(model);
         }
 
-        if (isMSTNode(value)) {
-          return new Proxy({} as SnapshotType, {
-            get: (_, nestedProp: string | symbol) => {
-              const nestedValue = value[nestedProp as keyof typeof value];
-              
-              if (typeof nestedValue === 'function') {
-                return nestedValue.bind(value);
-              }
+        return []; // If anything changes we want to re-render
+      },
+      function effect() {
+        forceRender();
+      },
+      {
+        fireImmediately: false,
+      }
+    );
 
-              // Track nested property
-              const fullProp = `${String(property)}.${String(nestedProp)}`;
-              if (!(fullProp in state)) {
-                setState(prev => ({
-                  ...prev,
-                  [fullProp]: nestedValue
-                }));
-              }
+    return () => {
+      disposer();
+    };
+  }, [forceRender, model]);
 
-              return nestedValue;
-            }
-          });
+  function makeProxy(instance, path) {
+    return new Proxy(emptyObject, {
+      get(_, key) {
+        const value = instance[key];
+
+        const newPath = [...path, key];
+        pathsAccessedInRender.current.add(newPath);
+
+        if (isStateTreeNode(value)) {
+          return makeProxy(value, [...path, key]);
+        }
+
+        if (typeof value === "function") {
+          const members = getMembers(instance);
+          if (members.views.includes(key)) {
+            // If we are accessing a view function, we attach the args
+            // to the path array so we can call the view function in the
+            // reaction.
+
+            const view = value.bind(instance);
+            const argumentWatcher = (...args: any) => {
+              const newPath = [...path, key];
+              newPath.args = args;
+              pathsAccessedInRender.current.add(newPath);
+              return view(...args);
+            };
+
+            return argumentWatcher;
+          } else {
+            return value.bind(instance);
+          }
         }
 
         return value;
-      }
+      },
+    });
+  }
 
-      const value = model[property as keyof T];
-
-      if (typeof value === 'function') {
-        return value.bind(model);
-      }
-
-      if (isMSTNode(value)) {
-        return new Proxy({} as SnapshotType, {
-          get: (_, nestedProp: string | symbol) => {
-            const nestedValue = value[nestedProp as keyof typeof value];
-            
-            if (typeof nestedValue === 'function') {
-              return nestedValue.bind(value);
-            }
-
-            const fullProp = `${String(property)}.${String(nestedProp)}`;
-            return state[fullProp] ?? nestedValue;
-          }
-        });
-      }
-
-      return state[property] ?? value;
-    }
-  });
+  return makeProxy(model, []);
 }
