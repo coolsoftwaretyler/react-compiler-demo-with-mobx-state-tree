@@ -19,6 +19,9 @@ const SubModel = t
     },
     lowercase() {
       return self.title.toLowerCase();
+    },
+    shift(spaces: number) {
+      return self.title.slice(spaces);
     }
   }))
 
