@@ -1,117 +1,111 @@
-import { useEffect, useState } from "react";
-import { IStateTreeNode, getSnapshot } from "mobx-state-tree";
 import { reaction } from "mobx";
+import {
+  IAnyStateTreeNode,
+  IStateTreeNode,
+  getMembers,
+  isStateTreeNode,
+} from "mobx-state-tree";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
-function isMSTNode(value: unknown): value is IStateTreeNode {
-  return Boolean(value && typeof value === "object" && "toJSON" in value);
+const emptyObject = {};
+
+type ViewArgs<T> = T extends (...args: infer A) => unknown ? A : never;
+
+class Path<T extends IAnyStateTreeNode> {
+  parts: (string | symbol)[];
+  args?: ViewArgs<T>;
+
+  constructor(parts: (string | symbol)[], args?: ViewArgs<T>) {
+    this.parts = parts;
+    this.args = args;
+  }
+
+  toString() {
+    return this.parts.join(".");
+  }
 }
 
-export function useObservable<T extends IStateTreeNode>(model: T) {
-  type SnapshotType = ReturnType<typeof getSnapshot<T>>;
-  
-  const [state, setState] = useState<Record<string | symbol, unknown>>({});
+export function useObservable<T extends IStateTreeNode>(
+  model: T,
+  debug?: boolean
+): T {
+  const [, setState] = useState(1);
+  const forceRender = useCallback(() => setState((n) => -n), []);
 
-  useEffect(() => {
-    if (!model) return;
+  const pathsAccessedInRender = useRef<Set<Path<T>>>(new Set());
+  pathsAccessedInRender.current = new Set();
 
-    const disposers: ReturnType<typeof reaction>[] = [];
-
-    // Set up reaction for each property
-    Object.keys(state).forEach(prop => {
-      const disposer = reaction(
-        () => {
-          const value = model[prop as keyof T];
-          if (isMSTNode(value)) {
-            // Handle nested properties
-            const nested = {} as Record<string, unknown>;
-            Object.keys(state)
-              .filter(key => key.startsWith(`${prop}.`))
-              .forEach(key => {
-                const nestedProp = key.split('.')[1];
-                nested[nestedProp] = value[nestedProp as keyof typeof value];
-              });
-            return { value, ...nested };
-          }
-          return value;
-        },
-        (newValue) => {
-          setState(prev => ({
-            ...prev,
-            // @ts-expect-error - need to figure out some of this weird typing
-            [prop]: isMSTNode(newValue) ? newValue.value : newValue
-          }));
-        },
-        { fireImmediately: true }
-      );
-      disposers.push(disposer);
-    });
-
-    return () => disposers.forEach(d => d());
-  }, [model, Object.keys(state).join(',')]);
-
-  return new Proxy({} as SnapshotType, {
-    get: (_, property: string | symbol) => {
-      // Initialize tracking for new properties
-      if (!(property in state)) {
-        const value = model[property as keyof T];
-        
-        setState(prev => ({
-          ...prev,
-          [property]: value
-        }));
-
-        if (typeof value === 'function') {
-          return value.bind(model);
-        }
-
-        if (isMSTNode(value)) {
-          return new Proxy({} as SnapshotType, {
-            get: (_, nestedProp: string | symbol) => {
-              const nestedValue = value[nestedProp as keyof typeof value];
-              
-              if (typeof nestedValue === 'function') {
-                return nestedValue.bind(value);
-              }
-
-              // Track nested property
-              const fullProp = `${String(property)}.${String(nestedProp)}`;
-              if (!(fullProp in state)) {
-                setState(prev => ({
-                  ...prev,
-                  [fullProp]: nestedValue
-                }));
-              }
-
-              return nestedValue;
+  useLayoutEffect(() => {
+    const disposer = reaction(
+      function expression() {
+        if (debug) {
+          console.log("Paths accessed in render:");
+          pathsAccessedInRender.current.forEach((path) => {
+            console.log("  ", path.toString());
+            if (path.args) {
+              console.log("    This is a view fn, with args:", path.args);
             }
           });
         }
 
-        return value;
-      }
+        for (const path of pathsAccessedInRender.current) {
+          let current: IAnyStateTreeNode = model;
+          for (const part of path.parts) {
+            current = current[part as keyof typeof current];
 
-      const value = model[property as keyof T];
-
-      if (typeof value === 'function') {
-        return value.bind(model);
-      }
-
-      if (isMSTNode(value)) {
-        return new Proxy({} as SnapshotType, {
-          get: (_, nestedProp: string | symbol) => {
-            const nestedValue = value[nestedProp as keyof typeof value];
-            
-            if (typeof nestedValue === 'function') {
-              return nestedValue.bind(value);
+            if (typeof current === "function" && path.args) {
+              current = current(...path.args);
             }
-
-            const fullProp = `${String(property)}.${String(nestedProp)}`;
-            return state[fullProp] ?? nestedValue;
           }
-        });
-      }
+        }
 
-      return state[property] ?? value;
-    }
-  });
+        return []; // If anything changes we want to re-render
+      },
+      function effect() {
+        forceRender();
+      },
+      {
+        fireImmediately: false,
+      }
+    );
+
+    return () => {
+      disposer();
+    };
+  }, [forceRender, model, debug]);
+
+  function makeProxy(instance: IAnyStateTreeNode, path: (string | symbol)[]) {
+    return new Proxy(emptyObject, {
+      get(_, key) {
+        const value = instance[key as keyof typeof instance];
+
+        const newPath = new Path([...path, key as string]);
+        pathsAccessedInRender.current.add(newPath);
+
+        if (isStateTreeNode(value)) {
+          return makeProxy(value, [...path, key]);
+        }
+
+        if (typeof value === "function") {
+          const members = getMembers(instance);
+          if (members.views.includes(key as string)) {
+            const view = value.bind(instance);
+            const argumentWatcher = (...args: ViewArgs<typeof view>) => {
+              const newPath = new Path([...path, key as string], args);
+              pathsAccessedInRender.current.add(newPath);
+              return view(...args);
+            };
+
+            return argumentWatcher;
+          } else {
+            return value.bind(instance);
+          }
+        }
+
+        return value;
+      },
+    });
+  }
+
+  return makeProxy(model, []) as T;
 }

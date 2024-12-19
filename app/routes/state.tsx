@@ -1,5 +1,5 @@
 import type { MetaFunction } from "@remix-run/node";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -16,6 +16,12 @@ export default function StatePage() {
 
   // Equivalent to MST computed view
   const allCaps = useMemo(() => title.toUpperCase(), [title]);
+
+  // Equivalent to MST lazily evaluated view
+  const lowercase = useCallback(() => title.toLowerCase(), [title]);
+
+  // Equivalent to MST lazily evaluated view
+  const shift = useCallback((spaces: number) => title.slice(spaces), [title]);
 
   console.log("Rendering");
 
@@ -50,6 +56,8 @@ export default function StatePage() {
         {count}: {title}
       </p>
       <p className="text-gray-800 my-2">This is a memoized value that capitalizes the title: {allCaps}</p>
+      <p className="text-gray-800 my-2">This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p>
+      <p className="text-gray-800 my-2">This is a lazily evaluated view that shifts the title by a variable amount (set to 2): {shift(2)}</p>
       <div className="flex flex-wrap gap-2">
         <button 
           onClick={increment} 

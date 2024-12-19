@@ -12,10 +12,8 @@ export const meta: MetaFunction = () => {
 export default function HookPage() {
   const {
     count,
-    submodel: { title, allCaps},
+    submodel: { title, allCaps, lowercase, shift },
   } = useObservable(store);
-
-  console.log("Rendering")
   
   return (
     <div className="App bg-white p-8 min-h-screen">
@@ -25,7 +23,8 @@ export default function HookPage() {
         {count}: {title}
       </p>
       <p className="text-gray-800 my-2">This is a computed view that capitalizes the title: {allCaps}</p>
-      {/* <p>This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p> */}
+      <p className="text-gray-800 my-2">This is a lazily evaluated view that converts the title to lowercase: {lowercase()}</p>
+      <p className="text-gray-800 my-2">This is a lazily evaluated view that shifts the title by a variable amount (set to 2): {shift(2)}</p>
       <div className="flex flex-wrap gap-2">
         <button 
           onClick={() => store.increment()} 
